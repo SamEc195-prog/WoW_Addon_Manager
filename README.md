@@ -1,43 +1,75 @@
-# Projekt-Dokumentation: WoW Addon-Manager (Python)
+# ⚔️ WoW Addon Manager (v2.1)
 
-## 1. Bisheriger Fortschritt
-* **Projekt-Setup:** Einrichtung der Entwicklungsumgebung (Python & Visual Studio Code) sowie Erstellung einer Test-Umgebung (`dummy_wow`), die das Dateisystem von World of Warcraft simuliert.
-* **Kernlogik (Lokale Erkennung):** Erfolgreiche Implementierung des Backend-Motors. Das Programm kann lokale WoW-Addons scannen und deren Metadaten auslesen.
-* **Plattformunabhängigkeit:** Der Code wurde von Beginn an mit dem Modul `pathlib` geschrieben, um plattformübergreifend (Windows, macOS, Linux/SteamDeck) fehlerfrei mit Dateipfaden arbeiten zu können.
-* **Fehlerbehandlung (Exception Handling):** Implementierung von `try-except`-Blöcken und UTF-8-Encoding, um Abstürze bei fehlerhaften oder internationalisierten Textdateien zu verhindern.
+Ein plattformübergreifender, performanter Addon-Manager für World of Warcraft, entwickelt in **Python 3** und **PyQt6**.
 
-## 2. Aktuelle Projektstruktur
-Das Projekt ist derzeit modular aufgebaut und trennt die Funktionalitäten in saubere Methoden:
+Dieses Projekt orientiert sich optisch und funktional an professionellen Vorbildern wie CurseForge, bietet jedoch eine leichtgewichtige, offene und werbefreie Alternative. Besonderer Wert wurde auf eine saubere Softwarearchitektur (Separation of Concerns), Ausfallsicherheit und eine exzellente User Experience (UX) gelegt.
 
-**Dateibaum:**
-```text
-MeinAddonManager/
-├── main.py                 # Das Hauptskript mit der Kernlogik
-└── dummy_wow/              # Simulierte WoW-Ordnerstruktur für Tests
-    └── Interface/
-        └── AddOns/
-            ├── MeinAddon/
-            │   └── MeinAddon.toc
-            └── DeadlyBossMods/
-                └── DeadlyBossMods.toc
+---
+
+## ✨ Features
+
+- **🚀 Asynchrone Performance:** Die Benutzeroberfläche bleibt dank Multithreading (PyQt6 `QThread`) beim Scannen und Herunterladen stets flüssig.
+- **🔍 Multi-API Kaskade:** Intelligente Update-Suche über verschiedene Quellen (GitHub Releases -> CurseForge via CFWidget -> Wago). Alpha- und Beta-Versionen werden automatisch herausgefiltert.
+- **🛡️ Cloudflare Bypass & Direct CDN:** Umgeht aggressive Hotlink-Sperren durch strategisches Browser-Spoofing (User-Agent & Referer) und generiert direkte Download-URLs (edge.forgecdn.net).
+- **🧠 Smart 3-Tier Sorting:** Eine Live-Insertion-Sortierung ordnet Addons automatisch nach Priorität:
+  1. Updates verfügbar (Handlungsbedarf)
+  2. Manuelle Suche erforderlich (Nicht verfolgt)
+  3. Aktuell (Up to date)
+- **✋ Manueller Drag & Drop Fallback:** Fehlen API-Daten, bietet der Manager einen One-Click-Zugang zur CurseForge-Websuche und akzeptiert manuell heruntergeladene `.zip`-Dateien per Drag & Drop für eine saubere Auto-Installation.
+- **📂 Lokale Override-Datenbank:** Eine `database.json` füllt fehlende Metadaten in `.toc`-Dateien automatisch auf (Case-Insensitive).
+
+---
+
+## 🏗️ Architektur (Separation of Concerns)
+
+Das Projekt folgt strikten MVC-Prinzipien, um Logik, Netzwerk, Daten und UI strikt voneinander zu trennen:
+
+- **`gui.py` (View / Controller):** Die PyQt6-Oberfläche. Verwaltet dynamische Listen, Drag&Drop-Dialoge und reagiert asynchron auf Worker-Signale.
+- **`workers.py` (Service):** Kapselt langlaufende Prozesse (`ScanWorker`, `UpdateWorker`) in Hintergrund-Threads, um UI-Freezes zu verhindern.
+- **`scanner.py` (Logik):** Parst lokale `.toc`-Dateien via RegEx und füllt fehlende Daten durch die Override-Datenbank auf.
+- **`api_client.py` (Netzwerk):** Behandelt alle externen API-Aufrufe (GitHub, CurseForge, Wago). Isoliert Netzwerkausfälle vom Rest des Programms.
+- **`installer.py` (File Management):** Verwaltet das Dateisystem. Löscht alte Versionen sicher und entpackt neue ZIP-Archive (sowohl aus dem Netz als auch lokal gedroppt).
+- **`config.py` (Model):** Nutzt `QSettings` für die persistente, plattformübergreifende Speicherung des WoW-Ordnerpfads.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Sprache:** Python 3.10+
+- **GUI-Framework:** PyQt6
+- **Netzwerk:** `requests`, `urllib`
+- **Datenverarbeitung:** `json`, `re` (RegEx), `pathlib`
+
+---
+
+## 🚀 Installation & Start
+
+1. Repository klonen:
+   ```bash
+   git clone [https://github.com/DEIN_NAME/wow-addon-manager.git](https://github.com/DEIN_NAME/wow-addon-manager.git)
+   cd wow-addon-manager
+   ```
+2. Abhängigkeiten installieren:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+   (Hinweis: requirements.txt sollte PyQt6 und requests enthalten)
+
+3. Programm starten:
+
+```bash
+   python gui.py
 ```
 
-**Code-Architektur (`main.py`):**
-1. `extract_version_from_toc(toc_path)`: Öffnet die `.toc`-Datei eines Addons, sucht gezielt nach dem String `## Version:` und extrahiert die Versionsnummer sicher.
-2. `scan_for_addons(addons_dir_str)`: Iteriert durch das lokale Addon-Verzeichnis, identifiziert gültige Addon-Ordner und verknüpft diese mit der extrahierten Versionsnummer.
-3. **Datenstruktur:** Das Ergebnis des Scans wird in einem dynamischen *Dictionary* (Schlüssel-Wert-Paare) gespeichert (z. B. `{"MeinAddon": "1.0.5"}`), welches das Fundament für zukünftige Versionsabgleiche bildet.
+📝 Roadmap / Next Steps
+[x] Grundlegendes Parsing der .toc Dateien
 
-## 3. Nächste geplante Schritte (Roadmap)
+[x] API-Anbindungen (GitHub, CurseForge, Wago)
 
-* **Phase 2: Netzwerk-Requests & APIs (Datenbeschaffung)**
-  * Anbindung an externe Datenbanken (z. B. GitHub API oder Wago API).
-  * Automatischer Abgleich der lokal installierten Versionen (aus unserem Dictionary) mit den aktuellsten Versionen im Netz.
-* **Phase 3: Download & Dateimanagement**
-  * Herunterladen neuer `.zip`-Archive bei verfügbaren Updates.
-  * Sicheres Löschen veralteter Addon-Ordner und Entpacken der neuen Dateien in das lokale Verzeichnis.
-* **Phase 4: Grafische Benutzeroberfläche (GUI)**
-  * Entwicklung eines modernen, plattformübergreifenden Frontends (z. B. mit *PyQt/PySide6*).
-  * Verknüpfung der GUI-Buttons mit der Backend-Logik.
-* **Phase 5: Performance & Deployment**
-  * Integration von *Multi-Threading*, damit die Benutzeroberfläche während der Downloads flüssig bleibt.
-  * "Packaging" (Kompilieren) der Python-Skripte in ausführbare, native Dateien (`.exe` für Windows, `.app` für macOS, Linux-kompatible Formate für das SteamDeck).
+[x] Drag & Drop Installation für Randfälle
+
+[ ] Funktionen erweitern: Deinstallation der Addons
+
+[ ] Zu jedem Addon das entsprechende Icon anzeigen
