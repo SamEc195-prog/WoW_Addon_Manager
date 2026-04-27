@@ -1,4 +1,4 @@
-# ⚔️ WoW Addon Manager (v2.1)
+# WoW Addon Manager
 
 Ein plattformübergreifender, performanter Addon-Manager für World of Warcraft, entwickelt in **Python 3** und **PyQt6**.
 
@@ -6,21 +6,21 @@ Dieses Projekt orientiert sich optisch und funktional an professionellen Vorbild
 
 ---
 
-## ✨ Features
+## Features
 
-- **🚀 Asynchrone Performance:** Die Benutzeroberfläche bleibt dank Multithreading (PyQt6 `QThread`) beim Scannen und Herunterladen stets flüssig.
-- **🔍 Multi-API Kaskade:** Intelligente Update-Suche über verschiedene Quellen (GitHub Releases -> CurseForge via CFWidget -> Wago). Alpha- und Beta-Versionen werden automatisch herausgefiltert.
-- **🛡️ Cloudflare Bypass & Direct CDN:** Umgeht aggressive Hotlink-Sperren durch strategisches Browser-Spoofing (User-Agent & Referer) und generiert direkte Download-URLs (edge.forgecdn.net).
-- **🧠 Smart 3-Tier Sorting:** Eine Live-Insertion-Sortierung ordnet Addons automatisch nach Priorität:
+- **Asynchrone Performance:** Die Benutzeroberfläche bleibt dank Multithreading (PyQt6 `QThread`) beim Scannen und Herunterladen stets flüssig.
+- **Multi-API Kaskade:** Intelligente Update-Suche über verschiedene Quellen (GitHub Releases -> CurseForge via CFWidget -> Wago). Alpha- und Beta-Versionen werden automatisch herausgefiltert.
+- **Cloudflare Bypass & Direct CDN:** Umgeht aggressive Hotlink-Sperren durch strategisches Browser-Spoofing (User-Agent & Referer) und generiert direkte Download-URLs (edge.forgecdn.net).
+- **Smart 3-Tier Sorting:** Eine Live-Insertion-Sortierung ordnet Addons automatisch nach Priorität:
   1. Updates verfügbar (Handlungsbedarf)
   2. Manuelle Suche erforderlich (Nicht verfolgt)
   3. Aktuell (Up to date)
-- **✋ Manueller Drag & Drop Fallback:** Fehlen API-Daten, bietet der Manager einen One-Click-Zugang zur CurseForge-Websuche und akzeptiert manuell heruntergeladene `.zip`-Dateien per Drag & Drop für eine saubere Auto-Installation.
-- **📂 Lokale Override-Datenbank:** Eine `database.json` füllt fehlende Metadaten in `.toc`-Dateien automatisch auf (Case-Insensitive).
+- **Manueller Drag & Drop Fallback:** Fehlen API-Daten, bietet der Manager einen One-Click-Zugang zur CurseForge-Websuche und akzeptiert manuell heruntergeladene `.zip`-Dateien per Drag & Drop für eine saubere Auto-Installation.
+- **Lokale Override-Datenbank:** Eine `database.json` füllt fehlende Metadaten in `.toc`-Dateien automatisch auf (Case-Insensitive).
 
 ---
 
-## 🏗️ Architektur (Separation of Concerns)
+## Architektur (Separation of Concerns)
 
 Das Projekt folgt strikten MVC-Prinzipien, um Logik, Netzwerk, Daten und UI strikt voneinander zu trennen:
 
@@ -33,7 +33,7 @@ Das Projekt folgt strikten MVC-Prinzipien, um Logik, Netzwerk, Daten und UI stri
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Sprache:** Python 3.10+
 - **GUI-Framework:** PyQt6
@@ -42,7 +42,7 @@ Das Projekt folgt strikten MVC-Prinzipien, um Logik, Netzwerk, Daten und UI stri
 
 ---
 
-## 🚀 Installation & Start
+## Installation & Start
 
 1. Repository klonen:
    ```bash
@@ -63,7 +63,8 @@ Das Projekt folgt strikten MVC-Prinzipien, um Logik, Netzwerk, Daten und UI stri
    python gui.py
 ```
 
-📝 Roadmap / Next Steps
+## Roadmap / Next Steps
+
 [x] Grundlegendes Parsing der .toc Dateien
 
 [x] API-Anbindungen (GitHub, CurseForge, Wago)
