@@ -261,17 +261,23 @@ class AddonManagerWindow(QMainWindow):
             
         row = AddonRowWidget(name, local_v, online_v, update_url)
         row.update_requested.connect(self.start_single_update)
-
-        # NEU: Das Signal mit der neuen Funktion für manuelle Suche verbinden
         row.manual_requested.connect(self.open_manual_search)
         
-        # 1. Wir vergeben eine Priorität (0 = Update, 1 = Kein Update)
-        priority = 0 if update_url else 1
+        # ===========================================
+        # NEU: Das 3-Tier Prioritätssystem
+        # ===========================================
+
+        if update_url:
+            priority = 0  # Update verfügbar (Ganz oben)
+        elif online_v in ["-", "Fehler"]:
+            priority = 1  # Manuelle Suche nötig (Mitte)
+        else:
+            priority = 2  # Alles okay / Up to date (Ganz unten)
         
-        # 2. Unser Sortier-Schlüssel (Tupel: Erst Prio, dann Name)
+        # Unser Sortier-Schlüssel (Tupel: Erst Prio, dann Name)
         sort_key = (priority, name.lower())
         
-        # 3. Wir suchen den exakten Index, an dem das neue Element eingefügt werden muss
+        # Wir suchen den exakten Index, an dem das neue Element eingefügt werden muss
         insert_index = 0
         for i, (existing_key, _) in enumerate(self.addon_widgets_data):
             # Sobald unser neuer Schlüssel kleiner ist als der existierende, haben wir den Platz!
