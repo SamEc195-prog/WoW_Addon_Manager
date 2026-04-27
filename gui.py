@@ -1,5 +1,8 @@
 import sys
-import re 
+import re
+import webbrowser
+import urllib.parse
+from PyQt6.QtWidgets import QDialog
 from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout,
                              QWidget, QLabel, QScrollArea, QFrame, QFileDialog, QMessageBox, QProgressBar)
@@ -7,10 +10,12 @@ from PyQt6.QtCore import Qt, QTimer
 
 from config import ConfigManager
 from workers import UpdateWorker, ScanWorker
+from installer import download_and_install_addon, install_local_addon
 
 class AddonRowWidget(QFrame):
     from PyQt6.QtCore import pyqtSignal
-    update_requested = pyqtSignal(str, str) 
+    update_requested = pyqtSignal(str, str)
+    manual_requested = pyqtSignal(str) # NEU: Signal für manuelle Installation
 
     def __init__(self, name, local_version, online_version, update_url=""):
         super().__init__()
@@ -21,13 +26,25 @@ class AddonRowWidget(QFrame):
         self.layout = QHBoxLayout(self)
         
         self.name_label = QLabel(f"<b>{name}</b>")
-        self.layout.addWidget(self.name_label, 1) 
+        self.layout.addWidget(self.name_label, 2)
+
+        # 2. Spalte: Lokale Version (NEU)
+        self.local_v_label = QLabel(f"<span style='color:#666;'>{local_version}</span>")
+        self.local_v_label.setFixedWidth(100)
+        self.local_v_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.layout.addWidget(self.local_v_label)
+
+        # 3. Spalte: Neueste Version
+        self.version_label = QLabel(online_version)
+        self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.version_label.setFixedWidth(100)
+        self.layout.addWidget(self.version_label)
         
+        # 4. Spalte: Aktion (Button oder Status)
         action_container = QWidget()
         action_layout = QHBoxLayout(action_container)
-        action_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         action_layout.setContentsMargins(0, 0, 0, 0)
-        action_container.setFixedWidth(120)
+        action_container.setFixedWidth(130)
 
         self.update_button = None
         self.status_label = None
@@ -38,24 +55,72 @@ class AddonRowWidget(QFrame):
             self.update_button.clicked.connect(self.on_update_clicked)
             action_layout.addWidget(self.update_button)
         elif online_version == "Fehler" or online_version == "-":
-            self.status_label = QLabel("<span style='color:gray;'>Nicht verfolgt</span>")
-            action_layout.addWidget(self.status_label)
+            # NEU: Ein Button statt einem Label
+            self.manual_button = QPushButton("Suchen")
+            self.manual_button.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.manual_button.setStyleSheet("color: #d35400; font-weight: bold;") # Etwas Farbe, um aufzufallen
+            self.manual_button.clicked.connect(self.on_manual_clicked)
+            action_layout.addWidget(self.manual_button)
         else:
             self.status_label = QLabel("<b>Up to date</b>")
             action_layout.addWidget(self.status_label)
             
         self.layout.addWidget(action_container, 0) 
-        
-        self.version_label = QLabel(online_version)
-        self.version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.version_label.setFixedWidth(150)
-        self.layout.addWidget(self.version_label, 0) 
 
     def on_update_clicked(self):
         if self.update_url:
             self.update_button.setEnabled(False)
             self.update_button.setText("Lädt...") 
             self.update_requested.emit(self.addon_name, self.update_url)
+
+    def on_manual_clicked(self):
+        # Wir senden den Addon-Namen zurück, damit die Hauptklasse weiß, welches Addon manuell gesucht werden soll
+        self.manual_requested.emit(self.addon_name)
+
+class DragDropDialog(QDialog):
+    def __init__(self, addon_name, parent=None):
+        super().__init__(parent)
+        self.addon_name = addon_name
+        self.zip_path = None
+
+        self.setWindowTitle(f"Manuelles Update: {addon_name}")
+        self.setFixedSize(400, 200)
+        
+        # Das ist das Wichtigste: Wir erlauben Drop-Events!
+        self.setAcceptDrops(True) 
+
+        layout = QVBoxLayout(self)
+
+        self.label = QLabel(
+            f"Der Browser wurde geöffnet.<br><br>"
+            f"Ziehe die heruntergeladene .zip Datei für<br>"
+            f"<b>{addon_name}</b><br>"
+            f"hier in dieses Fenster."
+        )
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Ein bisschen CSS, damit es wie eine "Drop-Zone" aussieht
+        self.label.setStyleSheet("border: 2px dashed #aaa; border-radius: 10px; padding: 20px; font-size: 14px;")
+        layout.addWidget(self.label)
+
+    # Wenn eine Datei über das Fenster gezogen wird
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.accept() # Akzeptiere die Aktion
+        else:
+            event.ignore()
+
+    # Wenn die Datei losgelassen wird
+    def dropEvent(self, event):
+        urls = event.mimeData().urls()
+        if urls:
+            file_path = urls[0].toLocalFile()
+            
+            # Sicherheitsprüfung: Ist es wirklich ein ZIP?
+            if file_path.endswith(".zip"):
+                self.zip_path = file_path
+                self.accept() # Schließt den Dialog erfolgreich (exec() gibt True zurück)
+            else:
+                self.label.setText("<span style='color:red;'>Bitte nur eine .zip Datei ablegen!</span>")
 
 
 class AddonManagerWindow(QMainWindow):
@@ -102,17 +167,23 @@ class AddonManagerWindow(QMainWindow):
         # --- Spaltenüberschriften ---
         columns_layout = QHBoxLayout()
         columns_layout.setContentsMargins(15, 0, 30, 0) 
-        columns_layout.addWidget(QLabel("<b>Addon</b>"), 1)
+        
+        columns_layout.addWidget(QLabel("<b>Addon</b>"), 2) # Gleicher Stretch wie oben
+        
+        local_v_col = QLabel("<b>Lokal</b>")
+        local_v_col.setFixedWidth(100)
+        local_v_col.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        columns_layout.addWidget(local_v_col)
+        
+        online_v_col = QLabel("<b>Online</b>")
+        online_v_col.setFixedWidth(100)
+        online_v_col.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        columns_layout.addWidget(online_v_col)
         
         action_col = QLabel("<b>Aktion</b>")
-        action_col.setFixedWidth(120)
+        action_col.setFixedWidth(130)
         action_col.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        columns_layout.addWidget(action_col, 0)
-        
-        version_col = QLabel("<b>Neueste Version</b>")
-        version_col.setFixedWidth(150)
-        version_col.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        columns_layout.addWidget(version_col, 0)
+        columns_layout.addWidget(action_col)
         
         main_layout.addLayout(columns_layout)
         
@@ -182,7 +253,7 @@ class AddonManagerWindow(QMainWindow):
             self.progress_bar.setValue(current)
 
     # ==========================================
-    # NEU: Live Insertion-Sort (Die Magie!)
+    # NEU: Live Insertion-Sort
     # ==========================================
     def add_scanned_addon(self, name, local_v, online_v, update_url):
         if update_url:
@@ -190,6 +261,9 @@ class AddonManagerWindow(QMainWindow):
             
         row = AddonRowWidget(name, local_v, online_v, update_url)
         row.update_requested.connect(self.start_single_update)
+
+        # NEU: Das Signal mit der neuen Funktion für manuelle Suche verbinden
+        row.manual_requested.connect(self.open_manual_search)
         
         # 1. Wir vergeben eine Priorität (0 = Update, 1 = Kein Update)
         priority = 0 if update_url else 1
@@ -249,6 +323,35 @@ class AddonManagerWindow(QMainWindow):
     def on_updates_finished(self):
         self.progress_bar.hide()
         self.check_for_updates() 
+
+    def open_manual_search(self, addon_name):
+        """
+        Öffnet den Browser und zeigt den Drag & Drop Dialog.
+        """
+        safe_name = urllib.parse.quote(addon_name)
+        search_url = f"https://www.curseforge.com/wow/addons/search?search={safe_name}"
+        webbrowser.open(search_url)
+        
+        # 1. Dialog erstellen und anzeigen
+        dialog = DragDropDialog(addon_name, self)
+        
+        # .exec() pausiert den Code hier, bis der Dialog geschlossen wird
+        if dialog.exec(): 
+            zip_path = dialog.zip_path
+            
+            if zip_path:
+                self.status_label.setText(f"Installiere manuelles Update für {addon_name}...")
+                QApplication.processEvents() # Zwingt die GUI, das Label-Update sofort zu zeichnen
+                
+                # 2. Die lokale Installation starten
+                success, message = install_local_addon(zip_path, self.config.get_wow_path(), addon_name)
+                
+                if success:
+                    QMessageBox.information(self, "Erfolg", f"{addon_name} wurde manuell aktualisiert!")
+                    # 3. Liste neu laden, um die neue Version in der .toc zu erkennen!
+                    self.check_for_updates() 
+                else:
+                    QMessageBox.warning(self, "Fehler", message)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
