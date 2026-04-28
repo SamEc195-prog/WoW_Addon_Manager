@@ -12,7 +12,7 @@ def clean_version(version_str):
     return match.group(1) if match else version_str.strip()
 
 class ScanWorker(QThread):
-    """Führt den Scan-Vorgang im Hintergrund aus, um das Einfrieren der GUI zu verhindern."""
+    """Führt den Scan-Vorgang im Hintergrund aus."""
     progress_update = pyqtSignal(int, int) 
     status_update = pyqtSignal(str)
     addon_scanned = pyqtSignal(str, str, str, str) 
@@ -21,9 +21,16 @@ class ScanWorker(QThread):
     def __init__(self, wow_path):
         super().__init__()
         self.wow_path = wow_path
+        
+        # NEU: Client-Typ anhand des Dateipfades ableiten
+        self.client_type = "retail" # Standardwert
+        path_lower = self.wow_path.lower()
+        if "_classic_" in path_lower or "_classic_era_" in path_lower:
+            self.client_type = "classic"
+        # Man könnte hier noch _ptr_ oder _beta_ hinzufügen
 
     def run(self):
-        self.status_update.emit("Lese lokale Addons...")
+        self.status_update.emit(f"Lese lokale {self.client_type.capitalize()}-Addons...")
         addons = scan_for_addons(self.wow_path)
         total = len(addons)
         
@@ -39,19 +46,20 @@ class ScanWorker(QThread):
             online_v, url = None, None
             current_curse_id = data["curse_id"]
             
-            # Fallback: Versucht die ID via Web-Scraping zu ermitteln, falls keine Metadaten existieren
             if not current_curse_id and not data["github_repo"] and not data["wago_id"]:
                 self.status_update.emit(f"Scrape ID für {name}...")
-                current_curse_id = scrape_curseforge_id(name)
+                current_curse_id = scrape_curseforge_id(name, self.client_type)
             
-            # API-Abfrage-Kaskade
+            # API-Abfragen mit Übergabe des Client-Typs
             if data["github_repo"]:
-                online_v, url = get_latest_github_release(data["github_repo"])
+                online_v, url = get_latest_github_release(data["github_repo"], self.client_type)
             
             if not online_v and current_curse_id:
-                online_v, url = get_latest_curseforge_release(current_curse_id)
+                online_v, url = get_latest_curseforge_release(current_curse_id, self.client_type)
                 
             if not online_v and data["wago_id"]:
+                # Wago trennt IDs pro Spielversion meistens direkt auf der Plattform, 
+                # daher ist hier ein Filter seltener nötig.
                 online_v, url = get_latest_wago_release(data["wago_id"])
                 
             clean_local = clean_version(local_v)
@@ -59,7 +67,6 @@ class ScanWorker(QThread):
             
             actual_update_url = url if (clean_online and clean_online != clean_local) else ""
             
-            # Übermittelt die Ergebnisse für das jeweilige Addon an die GUI
             self.addon_scanned.emit(name, clean_local, clean_online or "-", actual_update_url)
         
         self.progress_update.emit(total, total) 

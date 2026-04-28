@@ -286,7 +286,7 @@ class AddonManagerWindow(QMainWindow):
         # Ermittelt die korrekte Einfügeposition für das Live-Insertion-Sort
         insert_index = 0
         for i, (existing_key, _) in enumerate(self.addon_widgets_data):
-            # Sobald unser neuer Schlüssel kleiner ist als der existierende, haben wir den Platz!
+            # Sobald neuer Schlüssel kleiner ist als der bestehende, wird die Einfügeposition gefunden
             if sort_key < existing_key:
                 break
             insert_index = i + 1
