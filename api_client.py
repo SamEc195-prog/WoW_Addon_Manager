@@ -1,9 +1,11 @@
 import requests
-import urllib.parse # NEU: Für sichere URL-Generierung
+import urllib.parse
+import re
 
 def get_latest_github_release(repo_name):
+    """Holt die neueste Release-Version und den Download-Link aus einem GitHub-Repository."""
     url = f"https://api.github.com/repos/{repo_name}/releases/latest"
-    headers = {"User-Agent": "MeinWoWAddonManager-PortfolioProject"}
+    headers = {"User-Agent": "WoWAddonManager-PortfolioProject"}
     
     try:
         response = requests.get(url, headers=headers, timeout=10)
@@ -24,8 +26,9 @@ def get_latest_github_release(repo_name):
         return None, None
 
 def get_latest_curseforge_release(project_id):
+    """Fragt die CFWidget-API ab und konstruiert den direkten CDN-Download-Link."""
     url = f"https://api.cfwidget.com/{project_id}"
-    headers = {"User-Agent": "MeinWoWAddonManager-PortfolioProject"}
+    headers = {"User-Agent": "WoWAddonManager-PortfolioProject"}
     
     try:
         response = requests.get(url, headers=headers, timeout=10)
@@ -38,11 +41,11 @@ def get_latest_curseforge_release(project_id):
                 file_type = str(file_info.get("type", "")).lower()
                 version_name = str(file_info.get("display", "")).lower()
                 
+                # Ignoriert experimentelle Alpha- oder Beta-Versionen
                 if "alpha" in file_type or "beta" in file_type or "alpha" in version_name or "beta" in version_name:
                     continue 
                     
                 version = file_info.get("display")
-                
                 file_id = str(file_info.get("id", ""))
                 file_name = str(file_info.get("name", ""))
                 
@@ -50,10 +53,10 @@ def get_latest_curseforge_release(project_id):
                     part1 = file_id[:-3]
                     part2 = file_id[-3:]
                     
-                    # NEU: urllib.parse kümmert sich um ALLE Sonderzeichen (Leerzeichen, +, & etc.)
+                    # URL-Encoding für den sicheren Umgang mit Sonderzeichen im Dateinamen
                     safe_file_name = urllib.parse.quote(file_name)
                     
-                    # NEU: Wir nutzen den "edge" Server statt den "media" Server
+                    # Nutzt den Edge-Server für direkten Datei-Zugriff
                     download_url = f"https://edge.forgecdn.net/files/{part1}/{part2}/{safe_file_name}"
                 else:
                     download_url = file_info.get("url")
@@ -65,6 +68,7 @@ def get_latest_curseforge_release(project_id):
         return None, None
 
 def get_latest_wago_release(wago_id):
+    """Prüft die Wago-API auf neue Versionen und filtert Vorabversionen."""
     url = f"https://addons.wago.io/api/projects/{wago_id}/version"
     
     try:
@@ -83,20 +87,16 @@ def get_latest_wago_release(wago_id):
     except requests.exceptions.RequestException:
         return None, None
 
-# In api_client.py
-import re # Wenn nicht schon oben importiert
-
 def scrape_curseforge_id(addon_name):
     """
     Versucht die CurseForge Project-ID durch Web-Scraping der HTML-Seite zu finden.
-    Formatiert den Addon-Namen zu einer mutmaßlichen CurseForge-URL.
+    Formatiert den Addon-Namen vorab zu einer mutmaßlichen CurseForge-URL.
     """
-    # 1. URL-Slug generieren (z.B. "Decor Vendor" -> "decor-vendor")
-    # Wir ersetzen Leerzeichen und Unterstriche durch Bindestriche und machen alles klein.
+    # URL-Slug generieren (z.B. "Decor Vendor" -> "decor-vendor")
     slug = re.sub(r'[\s_]+', '-', addon_name).lower()
     url = f"https://www.curseforge.com/wow/addons/{slug}"
     
-    # 2. Spoofing-Headers nutzen, um Cloudflare nicht zu triggern
+    # Spoofing-Header verhindern die Blockierung durch Cloudflare
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -106,9 +106,8 @@ def scrape_curseforge_id(addon_name):
     try:
         response = requests.get(url, headers=headers, timeout=10)
         
-        # Nur wenn die Seite existiert (200 OK) durchsuchen wir das HTML
+        # HTML-Parsing wird nur bei erfolgreichem Seitenabruf durchgeführt
         if response.status_code == 200:
-            # 3. Mit RegEx die von dir gefundene project-id Klasse suchen
             match = re.search(r'class="project-id">(\d+)</span>', response.text)
             if match:
                 return match.group(1)

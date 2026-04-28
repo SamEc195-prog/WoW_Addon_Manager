@@ -74,10 +74,12 @@ class AddonRowWidget(QFrame):
             self.update_requested.emit(self.addon_name, self.update_url)
 
     def on_manual_clicked(self):
-        # Wir senden den Addon-Namen zurück, damit die Hauptklasse weiß, welches Addon manuell gesucht werden soll
+        # Addon-Name an die Haupt-GUI senden, damit sie den Browser öffnet und den Dialog startet
         self.manual_requested.emit(self.addon_name)
 
 class DragDropDialog(QDialog):
+    """Stellt einen modalen Dialog bereit, der das Drag & Drop von lokalen ZIP-Dateien akzeptiert."""
+
     def __init__(self, addon_name, parent=None):
         super().__init__(parent)
         self.addon_name = addon_name
@@ -86,7 +88,7 @@ class DragDropDialog(QDialog):
         self.setWindowTitle(f"Manuelles Update: {addon_name}")
         self.setFixedSize(400, 200)
         
-        # Das ist das Wichtigste: Wir erlauben Drop-Events!
+        # Aktiviert die Annahme von Drag-and-Drop-Ereignissen
         self.setAcceptDrops(True) 
 
         layout = QVBoxLayout(self)
@@ -104,6 +106,8 @@ class DragDropDialog(QDialog):
 
     # Wenn eine Datei über das Fenster gezogen wird
     def dragEnterEvent(self, event):
+        """Prüft, ob das hereingezogene Objekt URLs/Dateipfade enthält."""
+
         if event.mimeData().hasUrls():
             event.accept() # Akzeptiere die Aktion
         else:
@@ -111,11 +115,13 @@ class DragDropDialog(QDialog):
 
     # Wenn die Datei losgelassen wird
     def dropEvent(self, event):
+        """Verarbeitet die abgelegte Datei und schließt den Dialog bei Gültigkeit."""
+
         urls = event.mimeData().urls()
         if urls:
             file_path = urls[0].toLocalFile()
             
-            # Sicherheitsprüfung: Ist es wirklich ein ZIP?
+            # Überprüft den Dateityp
             if file_path.endswith(".zip"):
                 self.zip_path = file_path
                 self.accept() # Schließt den Dialog erfolgreich (exec() gibt True zurück)
@@ -131,7 +137,7 @@ class AddonManagerWindow(QMainWindow):
         self.available_updates = {}
         self.config = ConfigManager()
         
-        # NEU: Unsere interne Liste, um zu wissen, wo wir Widgets einfügen müssen
+        # Interne Liste, die die Widgets zusammen mit ihren Sortier-Schlüsseln hält
         self.addon_widgets_data = [] 
         
         central_widget = QWidget()
@@ -203,7 +209,7 @@ class AddonManagerWindow(QMainWindow):
             if item.widget():
                 item.widget().deleteLater()
         
-        # NEU: Wir müssen unsere Sortier-Liste auch leeren!
+        # Sortier-Liste ebenfalls leeren
         self.addon_widgets_data.clear()
 
     def change_wow_path(self):
@@ -253,7 +259,7 @@ class AddonManagerWindow(QMainWindow):
             self.progress_bar.setValue(current)
 
     # ==========================================
-    # NEU: Live Insertion-Sort
+    # Live Insertion-Sort
     # ==========================================
     def add_scanned_addon(self, name, local_v, online_v, update_url):
         if update_url:
@@ -264,7 +270,7 @@ class AddonManagerWindow(QMainWindow):
         row.manual_requested.connect(self.open_manual_search)
         
         # ===========================================
-        # NEU: Das 3-Tier Prioritätssystem
+        # 3-Tier Prioritätssystem
         # ===========================================
 
         if update_url:
@@ -274,10 +280,10 @@ class AddonManagerWindow(QMainWindow):
         else:
             priority = 2  # Alles okay / Up to date (Ganz unten)
         
-        # Unser Sortier-Schlüssel (Tupel: Erst Prio, dann Name)
+        # Generiert den Sortierschlüssel als Tupel (Priorität, Name)
         sort_key = (priority, name.lower())
         
-        # Wir suchen den exakten Index, an dem das neue Element eingefügt werden muss
+        # Ermittelt die korrekte Einfügeposition für das Live-Insertion-Sort
         insert_index = 0
         for i, (existing_key, _) in enumerate(self.addon_widgets_data):
             # Sobald unser neuer Schlüssel kleiner ist als der existierende, haben wir den Platz!
@@ -285,10 +291,10 @@ class AddonManagerWindow(QMainWindow):
                 break
             insert_index = i + 1
             
-        # 4. In unsere Datenliste einfügen...
+        # Aktualisiert die interne Referenzliste
         self.addon_widgets_data.insert(insert_index, (sort_key, row))
         
-        # 5. ...und in das visuelle Layout exakt an dieser Stelle einfügen!
+        # Fügt das Widget visuell an der ermittelten Position in das Layout ein
         self.list_layout.insertWidget(insert_index, row)
 
     def on_scan_finished(self):
@@ -338,7 +344,7 @@ class AddonManagerWindow(QMainWindow):
         search_url = f"https://www.curseforge.com/wow/addons/search?search={safe_name}"
         webbrowser.open(search_url)
         
-        # 1. Dialog erstellen und anzeigen
+        # Dialog erstellen und anzeigen
         dialog = DragDropDialog(addon_name, self)
         
         # .exec() pausiert den Code hier, bis der Dialog geschlossen wird

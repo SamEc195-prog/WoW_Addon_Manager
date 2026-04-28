@@ -3,8 +3,11 @@ import re
 from pathlib import Path
 
 def load_addon_database():
-    """Lädt die Mapping-Datenbank absolut sicher und ignoriert Groß-/Kleinschreibung."""
-    # 1. FIX: So sucht das Skript die JSON immer im selben Ordner wie die scanner.py selbst!
+    """
+    Lädt die Mapping-Datenbank aus der lokalen JSON-Datei.
+    Konvertiert alle Schlüssel in Kleinbuchstaben für case-insensitive Abfragen.
+    """
+    # Bestimmt den absoluten Pfad zur JSON-Datei relativ zum Speicherort dieses Skripts
     db_path = Path(__file__).parent / "database.json"
     
     if db_path.exists():
@@ -16,8 +19,7 @@ def load_addon_database():
                     
                 raw_db = json.loads(content)
                 
-                # 2. FIX: Wir verwandeln alle Keys in Kleinbuchstaben ("BeQuiet" -> "bequiet")
-                # So ist es völlig egal, wie der Addon-Ordner beim User genau benannt ist!
+                # Normalisiert die Schlüssel auf Kleinbuchstaben für eine tolerante Zuweisung
                 safe_db = {}
                 for key, value in raw_db.items():
                     safe_db[key.lower()] = value
@@ -32,7 +34,7 @@ def load_addon_database():
     return {}
 
 def extract_metadata_from_toc(toc_path):
-    """Liest die IDs aus der .toc-Datei."""
+    """Liest relevante Metadaten (Version, Repository, IDs) aus einer .toc-Datei."""
     metadata = {
         "version": None, 
         "github_repo": None,
@@ -62,7 +64,10 @@ def extract_metadata_from_toc(toc_path):
     return metadata
 
 def scan_for_addons(addons_dir_str):
-    """Scant den Ordner und füllt fehlende Daten durch die JSON auf."""
+    """
+    Scant den angegebenen Ordner nach Addons.
+    Fehlende Metadaten werden bei Übereinstimmung aus der lokalen Datenbank ergänzt.
+    """
     addons_dir = Path(addons_dir_str)
     installed_addons = {}
     
@@ -81,17 +86,12 @@ def scan_for_addons(addons_dir_str):
                 
                 if metadata["version"]:
                     addon_name = element.name
-                    
-                    # 3. FIX: Wir vergleichen auch den Ordnernamen in Kleinbuchstaben
                     addon_name_lower = addon_name.lower()
                     
-                    # ==========================================
-                    # Der saubere, typensichere Override
-                    # ==========================================
+                    # Überschreibt fehlende Metadaten mit Einträgen aus der JSON-Datenbank
                     if addon_name_lower in database:
                         db_entry = database[addon_name_lower] 
                         
-                        # Wir greifen nur dann auf das Dict zu, wenn der Wert auch darin steht
                         if not metadata["github_repo"] and "github_repo" in db_entry:
                             metadata["github_repo"] = str(db_entry["github_repo"])
                             
@@ -104,7 +104,3 @@ def scan_for_addons(addons_dir_str):
                     installed_addons[addon_name] = metadata
                     
     return installed_addons
-
-if __name__ == "__main__":
-    test_path = "dummy_wow/Interface/AddOns"
-    print(scan_for_addons(test_path))
