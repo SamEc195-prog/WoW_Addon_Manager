@@ -1,5 +1,9 @@
 # WoW Addon Manager
 
+<img width="479" height="448" alt="wowam-v1-screenshot" src="https://github.com/user-attachments/assets/712dddb8-3edd-4376-9446-97d645923bc9" />
+
+</br>
+
 Ein plattformübergreifender, performanter Addon-Manager für World of Warcraft, entwickelt in **Python 3** und **PyQt6**.
 
 Dieses Projekt orientiert sich optisch und funktional an professionellen Vorbildern wie CurseForge, bietet jedoch eine leichtgewichtige, offene und werbefreie Alternative. Besonderer Wert wurde auf eine saubere Softwarearchitektur (Separation of Concerns), Ausfallsicherheit und eine exzellente User Experience (UX) gelegt.
